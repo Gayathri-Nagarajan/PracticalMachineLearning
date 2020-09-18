@@ -1,0 +1,284 @@
+---
+title: "Exercise Prediction using Model"
+author: "Gayathri Nagarajan"
+date: "9/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE)
+library(Boruta)
+library(caret)
+library(mlbench)
+library(randomForest)
+library(dplyr)
+library(dplyr)
+
+```
+
+## R Markdown
+
+This is a Machine Learning Project wherein we are given exercise data of 6 individuals.The goal is to predict the manner in which they did the Exercise i.e Classe variable.Steps performed:
+1) We have total 160 features available. Using nzv function elimate some features .We get 59 features including the classe feature which needs to be predicted.
+2)Split the data set of 19622 rows into training (70%) and testing ( 30%)
+3) Employed repeated cross validation of the data to ensure we get a highly accurate predictive model.
+3) I built two models namely GBM and RF models and checked their accuracy
+4) The accuracy in gbm model was 0.997 whereas that of random forest was 1.
+Our aim is to avoid overfitting and ensure model works fine for new data.
+THe out of sample error is 0 when using random forest.
+Using the random forest, when I predict the 20 test cases I get prediction classe as A for all 20 test cases.
+
+
+```{r load_data, echo=FALSE, fig.show='asis', warning=FALSE, cache=TRUE}
+set.seed(111)
+setwd( "C:\\Users\\RamamurthyV\\Documents\\R\\8.Machine Learning\\Project ML GIT\\PracticalMachineLearning")
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+
+#str(training)
+dim(training)
+#19622, 160 col
+dim(testing)
+#str(testing)
+#20, 160 col
+#https://www.youtube.com/watch?v=dJclNIN-TPo&t=501s check this for random forest with Bagging 
+#Check model ensembling in practical machine learning course notes
+
+#remove any columnn that has NA
+#select only columns that dont have even one NA value 
+t1 <- training %>%
+    select_if(~ !any(is.na(.)))
+#dim(t1)
+#Only 93 have non NA
+#Identify and remove near zero variance predictors
+nzv <- nearZeroVar(t1)
+#nzv
+#length(nzv)
+#34
+newTraining <- t1[, -nzv]
+#19622 rows with 93-34=59 columns after removing the columns that had even 1 NA 
+dim(newTraining)
+#19622 59 
+
+#str(newTraining)
+#Use cross validation to partition training set into 10 folds
+newdata_train <-createDataPartition(newTraining$classe,p=0.7,list=FALSE)
+#newdata_train
+trg <- newTraining[newdata_train,]
+tst <- newTraining[-newdata_train,]
+
+dim(trg)
+#13737 59
+dim(tst)
+#5885 59
+
+#trg
+#remove the classe independent variable which we want to predict 
+col_names_trg <- names(trg[,-59])
+#col_names_trg
+#class(col_names_trg)
+#length(col_names_trg)
+#58 columns only 
+
+#Pick only these from the training original set 
+testing <- data.frame(testing)
+dim(testing)
+#class(testing)
+#tail(testing)
+#col_names_trg
+final_t<- select(testing,all_of(col_names_trg))
+#final_t                 
+
+
+                 
+                 
+#Using cross validation in the trng set 
+splitrule <- trainControl(method="repeatedcv",repeats=3,number=2,classProbs = TRUE)
+#splitrule
+gbmModel <- train(classe~.,data=trg,trControl=splitrule,method="gbm",preProc=c("center","scale"),metric="ROC")
+#Took time 4:58 pm to 
+summary(gbmModel)
+gbmTest<- predict(gbmModel, newdata = tst)
+#length(gbmTest)
+confusionMatrix(gbmTest,tst$classe)
+#Accuracy is 0.9998
+#calculate rmse 
+#sqrt(mean(gbmTest-tst$classe)^2)
+#table(tst$classe) #actuals numbers in each category of classe 
+
+#RF model
+rfModel <- train(classe~.,data=trg,trControl=splitrule,method="rf",preProc=c("center","scale"),metric="ROC")
+summary(rfModel)
+rfTest<- predict(rfModel, newdata = tst)
+confusionMatrix(rfTest,tst$classe)
+#Accuracy is 1 
+
+#Random Forest
+randomf <- randomForest(classe ~.,data=trg)
+#print(randomf)
+#No errors
+#attributes(randomf)
+#randomf$confusion
+randomp<- predict(randomf, newdata=tst)
+#NO errors 
+#head(randomp)
+#head(tst$classe)
+confusionMatrix(randomp,tst$classe)
+#Accuracy is 1 
+
+#Plot our model for showing Out of Bag Error 
+plot(randomf)
+
+
+
+#Check the final_testing model for prediction
+gbmfinal<- predict(gbmModel, newdata = final_t)
+gbmfinal
+#All are A's 
+
+
+
+#Check the final_testing model for prediction using rf
+#We have predicted all 20 to be in class A 
+rffinal<- predict(rfModel, newdata = final_t)
+rffinal
+#All A's
+
+plot(gbmModel)
+plot(gbmfinal)
+
+plot(randomf)
+plot(rffinal)
+
+```
+
+##  Conclusion 
+
+We are able to predict the 20 test cases using the random forest model that has a high accuracy of 1.
+
+## CODE 
+#####################
+set.seed(111)
+setwd( "C:\\Users\\RamamurthyV\\Documents\\R\\8.Machine Learning\\Project ML")
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+
+#str(training)
+dim(training)
+#19622, 160 col
+dim(testing)
+#str(testing)
+#20, 160 col
+#https://www.youtube.com/watch?v=dJclNIN-TPo&t=501s check this for random forest with Bagging 
+#Check model ensembling in practical machine learning course notes
+
+#remove any columnn that has NA
+#select only columns that dont have even one NA value 
+t1 <- training %>%
+    select_if(~ !any(is.na(.)))
+#dim(t1)
+#Only 93 have non NA
+#Identify and remove near zero variance predictors
+nzv <- nearZeroVar(t1)
+nzv
+#length(nzv)
+#34
+newTraining <- t1[, -nzv]
+#19622 rows with 93-34=59 columns after removing the columns that had even 1 NA 
+dim(newTraining)
+#19622 59 
+
+#str(newTraining)
+#Use cross validation to partition training set into 10 folds
+newdata_train <-createDataPartition(newTraining$classe,p=0.7,list=FALSE)
+newdata_train
+trg <- newTraining[newdata_train,]
+tst <- newTraining[-newdata_train,]
+
+dim(trg)
+#13737 59
+dim(tst)
+#5885 59
+
+#trg
+#remove the classe independent variable which we want to predict 
+col_names_trg <- names(trg[,-59])
+#col_names_trg
+#class(col_names_trg)
+#length(col_names_trg)
+#58 columns only 
+
+#Pick only these from the training original set 
+testing <- data.frame(testing)
+dim(testing)
+#class(testing)
+#tail(testing)
+#col_names_trg
+final_t<- select(testing,all_of(col_names_trg))
+#final_t                 
+
+
+                 
+                 
+#Using cross validation in the trng set 
+splitrule <- trainControl(method="repeatedcv",repeats=3,number=2,classProbs = TRUE)
+splitrule
+gbmModel <- train(classe~.,data=trg,trControl=splitrule,method="gbm",preProc=c("center","scale"),metric="ROC")
+#Took time 4:58 pm to 
+summary(gbmModel)
+gbmTest<- predict(gbmModel, newdata = tst)
+#length(gbmTest)
+confusionMatrix(gbmTest,tst$classe)
+#Accuracy is 0.9998
+#calculate rmse 
+#sqrt(mean(gbmTest-tst$classe)^2)
+table(tst$classe) #actuals numbers in each category of classe 
+
+#RF model
+rfModel <- train(classe~.,data=trg,trControl=splitrule,method="rf",preProc=c("center","scale"),metric="ROC")
+summary(rfModel)
+rfTest<- predict(rfModel, newdata = tst)
+confusionMatrix(rfTest,tst$classe)
+#Accuracy is 1 
+
+#Random Forest
+randomf <- randomForest(classe ~.,data=trg)
+print(randomf)
+#No errors
+attributes(randomf)
+randomf$confusion
+randomp<- predict(randomf, newdata=tst)
+#NO errors 
+#head(randomp)
+#head(tst$classe)
+confusionMatrix(randomp,tst$classe)
+#Accuracy is 1 
+
+#Plot our model for showing Out of Bag Error 
+plot(randomf)
+
+
+
+#Check the final_testing model for prediction
+gbmfinal<- predict(gbmModel, newdata = final_t)
+gbmfinal
+#All are A's 
+
+
+
+#Check the final_testing model for prediction using rf
+#We have predicted all 20 to be in class A 
+rffinal<- predict(rfModel, newdata = final_t)
+rffinal
+#All A's
+####################################################
+
+
+## References
+1.  http://groupware.les.inf.puc-rio.br/har ( For Providing with Data-Thanks Team)
+2.  http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf
+3.  https://www.youtube.com/watch?v=VEBax2WMbEA
+4.  http://r-statistics.co/Missing-Value-Treatment-With-R.html
+5.  https://dzone.com/articles/r-filtering-data-frames-column
+6.  https://www.youtube.com/watch?v=OwPQHmiJURI
+7.  https://drive.google.com/file/d/1uCUDvwJE0RYSmejg22aES6AmkXbLG--h/view
